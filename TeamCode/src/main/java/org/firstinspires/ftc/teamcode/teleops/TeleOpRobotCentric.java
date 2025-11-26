@@ -9,7 +9,6 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.Constants;
 import org.firstinspires.ftc.teamcode.Hardwares;
 import org.firstinspires.ftc.teamcode.subsystems.Drive;
@@ -20,8 +19,8 @@ import org.firstinspires.ftc.teamcode.utils.ButtonEx;
 import org.firstinspires.ftc.teamcode.utils.OdometerData;
 import org.firstinspires.ftc.teamcode.utils.XKCommandOpmode;
 
-@TeleOp(name = "TeleOp有头", group = "teleops")
-public class 有头 extends XKCommandOpmode {
+@TeleOp(name = "TeleOpRobotCentric", group = "teleops")
+public class TeleOpRobotCentric extends XKCommandOpmode {
     private Shooter shooter;
     private Hardwares hardwares;
     private Intake intake;
@@ -126,14 +125,14 @@ public class 有头 extends XKCommandOpmode {
         new ButtonEx(
                 ()-> gamepad2.getButton(GamepadKeys.Button.B)
         ).whenPressed(
-            shooter.setShooter(Constants.shooter150cm),
+            shooter.setShooter(Constants.shooter40cm),
             light.setLightColor(0, 255, 0)
             );
 
         new ButtonEx(
                 ()-> gamepad2.getButton(GamepadKeys.Button.A)
         ).whenPressed(
-            shooter.setShooter(Constants.shooter105cm),
+            shooter.setShooter(Constants.shooter125cm),
             light.setLightColor(0, 0, 255));
     }
 }

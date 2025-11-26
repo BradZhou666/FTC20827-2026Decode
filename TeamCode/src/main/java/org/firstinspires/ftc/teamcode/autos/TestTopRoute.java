@@ -4,6 +4,7 @@ package org.firstinspires.ftc.teamcode.autos;
 import com.arcrobotics.ftclib.command.CommandScheduler;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.Constants;
 import org.firstinspires.ftc.teamcode.Hardwares;
@@ -22,6 +23,7 @@ import org.firstinspires.ftc.teamcode.utils.XKCommandOpmode;
 @Autonomous(name = "TestTopRoute", group = "autos")
 public class TestTopRoute extends XKCommandOpmode {
     // 硬件子系统
+
     private Hardwares hardwares;
     private Drive drive;
     private AutoDrive autoDrive;
@@ -31,21 +33,36 @@ public class TestTopRoute extends XKCommandOpmode {
 
     // 状态机相关
     private AutoStep currentStep;
+    private int currIndex;
     private long stepStartTime;
     private OdometerData odo;
+    private final CommandScheduler scheduler = CommandScheduler.getInstance();
 
-    // 定义自动驾驶步骤枚举
+    /**
+     * 定义自动驾驶步骤枚举，表示机器人在自动阶段中的各个任务节点
+     */
     private enum AutoStep {
-        MOVE_TO_FIRST_POSITION,           // 初始化射击器
-        FIRST_SHOOT_BALLS,            // 射球阶段
-        MOVE_TO_SECOND_POSITION,// 移动到第二个位置
-        INTAKE_BALLS,
-        MOVE_TO_THIRD_POSITION,
-        SECOND_SHOOT_BALLS,
-        STOP_SYSTEMS,           // 停止所有系统
-        COMPLETE               // 完成
+        MOVE_TO_FIRST_POSITION,           // 移动到初始射击位置
+        FIRST_SHOOT_BALLS,                // 初始射球阶段
+        MOVE_TO_INTAKE_POSITION1,         // 移动至第一组取球点
+        INTAKE_BALLS1,                    // 取第一组球
+        MOVE_TO_SHOOTING_POSITION1,       // 回到射击位1
+        SHOOT_BALLS1,                     // 发射第一组球
+        MOVE_TO_INTAKE_POSITION2,         // 移动至第二组取球点
+        INTAKE_BALLS2,                    // 取第二组球
+        MOVE_TO_SHOOTING_POSITION2,       // 回到射击位2
+        SHOOT_BALLS2,                     // 发射第二组球
+        MOVE_TO_INTAKE_POSITION3,         // 移动至第三组取球点
+        INTAKE_BALLS3,                    // 取第三组球
+        MOVE_TO_SHOOTING_POSITION3,       // 回到射击位3
+        SHOOT_BALLS3,                     // 发射第三组球
+        STOP_SYSTEMS,                     // 停止所有系统
+        COMPLETE                          // 完成整个流程
     }
 
+    /**
+     * 当OpMode启动时调用此方法，用于初始化状态机变量
+     */
     @Override
     public void onStart() {
         // 初始化状态机
@@ -54,6 +71,9 @@ public class TestTopRoute extends XKCommandOpmode {
         telemetry.addData("Auto Status", "Started");
     }
 
+    /**
+     * 主循环中持续运行的方法，负责更新传感器、执行当前步骤和调度命令
+     */
     @Override
     public void run() {
         // 更新传感器数据
@@ -64,39 +84,71 @@ public class TestTopRoute extends XKCommandOpmode {
         executeCurrentStep();
 
         // 运行命令调度器
-        CommandScheduler.getInstance().run();
+        scheduler.run();
 
         // 更新遥测数据
         updateTelemetry();
     }
 
     /**
-     * 根据当前步骤执行相应操作
+     * 根据当前步骤执行相应的操作逻辑
      */
     private void executeCurrentStep() {
         switch (currentStep) {
             case MOVE_TO_FIRST_POSITION:
-                moveToCloseShootingPos(0);
+                moveToShootingPos(0);
                 break;
 
             case FIRST_SHOOT_BALLS:
-                shootBalls(1);
+                shootBalls();
                 break;
 
-            case MOVE_TO_SECOND_POSITION:
-                moveToFirstIntakePos(2);
+            case MOVE_TO_INTAKE_POSITION1:
+                moveToIntakePos(0);
                 break;
 
-            case INTAKE_BALLS:
-                firstIntakeBalls(3);
+            case INTAKE_BALLS1:
+                IntakeBalls(0);
                 break;
 
-            case MOVE_TO_THIRD_POSITION:
-                moveToCloseShootingPos(4);
+            case MOVE_TO_SHOOTING_POSITION1:
+                moveToShootingPos(0);
                 break;
 
-            case SECOND_SHOOT_BALLS:
-                shootBalls(5);
+            case SHOOT_BALLS1:
+                shootBalls();
+                break;
+
+            case MOVE_TO_INTAKE_POSITION2:
+                moveToIntakePos(1);
+                break;
+
+            case INTAKE_BALLS2:
+                IntakeBalls(1);
+                break;
+
+            case MOVE_TO_SHOOTING_POSITION2:
+                moveToShootingPos(0);
+                break;
+
+            case SHOOT_BALLS2:
+                shootBalls();
+                break;
+
+            case MOVE_TO_INTAKE_POSITION3:
+                moveToIntakePos(2);
+                break;
+
+            case INTAKE_BALLS3:
+                IntakeBalls(2);
+                break;
+
+            case MOVE_TO_SHOOTING_POSITION3:
+                moveToShootingPos(0);
+                break;
+
+            case SHOOT_BALLS3:
+                shootBalls();
                 break;
 
             case STOP_SYSTEMS:
@@ -110,49 +162,53 @@ public class TestTopRoute extends XKCommandOpmode {
     }
 
     /**
-     * 处理初始化射击器步骤
+     * 控制机器人移动到指定编号的射击位置，并设置射击准备动作
+     *
+     * @param posNum 射击位置索引（对应Constants.shootingPosition数组）
      */
-    private void moveToCloseShootingPos(int curr) {
+    private void moveToShootingPos(int posNum) {
         // 设置射击器和进球系统
         shooter.blockBallPass().schedule();
-        shooter.setShooter(Constants.shooter105cm).schedule();
+        shooter.setShooter(Constants.shooter125cm).schedule();
         intake.startIntake(false).schedule();
 
         // 驱动到第一个位置
         AutoDrive.Output out = autoDrive.driveToAdaptive(
             drive,
             adaptiveController,
-            -110,  // X坐标
-            0,     // Y坐标
-            0,     // 角度
+            Constants.shootingPosition[posNum][0],  // X坐标
+            Constants.shootingPosition[posNum][1],     // Y坐标
+            Constants.shootingPosition[posNum][2],     // 角度
             odo,
-            1.0,
+            0.5,
             true
         );
 
         // 检查是否到达位置且运行时间超过5秒
-        if (out.atPosition && out.atHeading && getElapsedSeconds() > 5) {
-            transitionToNextStep(curr);
+        if (out.atPosition && out.atHeading) {
+            transitionToNextStep();
         }
     }
 
     /**
-     * 处理射球步骤
+     * 执行发射球的动作，在允许球通过后等待一段时间再进入下一阶段
      */
-    private void shootBalls(int curr) {
+    private void shootBalls() {
         // 允许球通过并开始进球
         shooter.allowBallPass().schedule();
 
         // 持续3秒后进入下一步
-        if (getElapsedSeconds() > 3) {
-            transitionToNextStep(curr);
+        if (getElapsedSeconds() > 2) {
+            transitionToNextStep();
         }
     }
 
     /**
-     * 处理移动到第二个位置步骤
+     * 控制机器人前往指定编号的取球点，并关闭预处理机构
+     *
+     * @param posNum 取球位置索引（对应Constants.pickUpPosition数组）
      */
-    private void moveToFirstIntakePos(int curr) {
+    private void moveToIntakePos(int posNum) {
         // 阻止球通过
         intake.stopIntake().schedule();
         shooter.stopPreShooter().schedule();
@@ -162,45 +218,47 @@ public class TestTopRoute extends XKCommandOpmode {
         AutoDrive.Output out = autoDrive.driveToAdaptive(
             drive,
             adaptiveController,
-            -115,  // X坐标
-            35,   // Y坐标
-            45,     // 角度
+            Constants.pickUpPosition[posNum][0],  // X坐标
+            Constants.pickUpPosition[posNum][1],   // Y坐标
+            Constants.pickUpPosition[posNum][2],     // 角度
             odo,
-            0.6,
+            0.5,
             true
         );
 
         // 检查是否到达位置且运行时间超过3秒
-        if (out.atPosition && out.atHeading && getElapsedSeconds() > 3) {
-            transitionToNextStep(curr);
+        if (out.atPosition && out.atHeading) {
+            transitionToNextStep();
         }
     }
 
     /**
-     * 处理 intake 步骤
+     * 在当前位置进行取球动作，控制驱动向前进以确保拾取成功
+     *
+     * @param posNum 取球位置索引（对应Constants.pickUpPosition数组）
      */
-    private void firstIntakeBalls(int curr) {
-        intake.startIntake(false).schedule();
+    private void IntakeBalls(int posNum) {
+        intake.startIntake(true).schedule();
         shooter.blockBallPass().schedule();
 
         AutoDrive.Output out = autoDrive.driveToAdaptive(
             drive,
             adaptiveController,
-            -65,  // X坐标
-            80,   // Y坐标
-            45,     // 角度
+            Constants.pickUpPosition[posNum][0],  // X坐标
+            Constants.pickUpPosition[posNum][1]+90,   // Y坐标
+            Constants.pickUpPosition[posNum][2],     // 角度
             odo,
             0.3,
             true
         );
 
-        if (out.atPosition && out.atHeading && getElapsedSeconds() > 3) {
-            transitionToNextStep(curr);
+        if (out.atPosition && out.atHeading) {
+            transitionToNextStep();
         }
     }
 
     /**
-     * 处理停止所有系统步骤
+     * 停止所有系统的运作，包括射击与取球装置，并结束自动流程
      */
     private void stopSystems() {
         // 停止射击器和进球系统
@@ -213,7 +271,8 @@ public class TestTopRoute extends XKCommandOpmode {
 
     /**
      * 转换到下一个步骤
-     * @param nextStep 下一个步骤
+     *
+     * @param nextStep 下一个要切换的状态
      */
     private void transitionToNextStep(AutoStep nextStep) {
         currentStep = nextStep;
@@ -222,25 +281,27 @@ public class TestTopRoute extends XKCommandOpmode {
     }
 
     /**
-     * 转换到下一个步骤
+     * 转换到下一个步骤（基于枚举顺序递增）
      */
-    private void transitionToNextStep(int curr) {
-        AutoStep nextStep = AutoStep.values()[curr + 1];
+    private void transitionToNextStep() {
+        currIndex++;
+        AutoStep nextStep = AutoStep.values()[currIndex];
         currentStep = nextStep;
         stepStartTime = System.currentTimeMillis();
         telemetry.addData("Auto Step Changed", nextStep.toString());
     }
 
     /**
-     * 获取自步骤开始以来经过的秒数
-     * @return 经过的秒数
+     * 计算从当前步骤开始至今所经历的时间（单位：秒）
+     *
+     * @return 已经过去的时间（秒）
      */
     private double getElapsedSeconds() {
         return (System.currentTimeMillis() - stepStartTime) / 1000.0;
     }
 
     /**
-     * 更新遥测数据显示
+     * 实时更新遥测信息显示当前状态及机器人的实时定位数据
      */
     private void updateTelemetry() {
         telemetry.addData("Current Step", currentStep.toString());
@@ -254,17 +315,20 @@ public class TestTopRoute extends XKCommandOpmode {
         telemetry.update();
     }
 
+    /**
+     * 初始化所有硬件组件及其对应的子系统对象
+     */
     @Override
     public void initialize() {
         // 初始化所有硬件子系统
         hardwares = new Hardwares(hardwareMap);
         drive = new Drive(hardwares);
         autoDrive = new AutoDrive();
-        adaptiveController = new AdaptivePoseController();
+        adaptiveController = Constants.PID.newPoseController();
         shooter = new Shooter(hardwares);
         intake = new Intake(hardwares);
         odo = new OdometerData(hardwares.sensors.odo);
-
+        hardwares.sensors.odo.setHeading(45, AngleUnit.DEGREES);
         telemetry.addData("Auto Status", "Initialized");
     }
 }

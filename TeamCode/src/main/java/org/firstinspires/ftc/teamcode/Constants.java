@@ -1,4 +1,10 @@
 package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
+
+import org.firstinspires.ftc.teamcode.utils.AdaptivePIDController;
+import org.firstinspires.ftc.teamcode.utils.AdaptivePoseController;
+
 public class Constants {
     public static class ShooterConfig {
         public int frontVelocity;
@@ -11,13 +17,39 @@ public class Constants {
 
     public static double preShooterBlock = -1;
     public static double preShooterRun = 1;
+    public static ShooterConfig shooter40cm = new ShooterConfig(700, 700);
+    public static ShooterConfig shooter125cm = new ShooterConfig(500, 1300);
     public static ShooterConfig shooter250cm = new ShooterConfig(860, 1660);
-    public static ShooterConfig shooter150cm = new ShooterConfig(500, 1440);
-    public static ShooterConfig shooter105cm = new ShooterConfig(500, 1300);
     public static ShooterConfig shooterStop = new ShooterConfig(0, 0);
     public static double intakePowerSlow = 0.8;
     public static double intakePowerFast = 1.0;
     public static int driveMaxVelocity = 2960;
+    //我想要把最开始设置成45度这样子后面的坐标的heading是正的，但是这样子的话换边会出问题。虽然我们用绝对坐标换边肯定会出问题
+    public static double[][] pickUpPosition = {  //x,y,heading
+        {-108,-70,90},
+        {-168,-70,90},
+        {-228,-70,90}
+    };
+    // 吸球时把y轴怼到0就能吸进去。
+    public static double[][] shootingPosition = { //x,y,heading
+        {-85,-85,45}, //close
+        {},           //middle
+        {}            //far
+    };
+
+    public static class ShooterPID{
+        // Previous names: aggressiveFrontPID / conservativeFrontPID etc.
+        // We now provide three sets: low, mid, high for front and back. The mid values here are chosen as reasonable midpoints
+        // between the previously used aggressive and conservative tunings.
+        public static final PIDFCoefficients highFrontPID = new PIDFCoefficients(7, 68.767, 0.267, 7e-4);
+        public static final PIDFCoefficients lowFrontPID  = new PIDFCoefficients(3.3, 25.935, 0.277, 0.000);
+        public static final PIDFCoefficients midFrontPID  = new PIDFCoefficients(5.15, 47.351, 0.272, 0.00035);
+
+        public static final PIDFCoefficients highBackPID  = new PIDFCoefficients(7, 27.023, 0.705, 7e-4);
+        public static final PIDFCoefficients lowBackPID   = new PIDFCoefficients(3.3, 10.192, 0.680, 0.000);
+        public static final PIDFCoefficients midBackPID   = new PIDFCoefficients(5.15, 18.6075, 0.6925, 0.00035);
+    }
+
 
     // 新增：自适应阻尼相关常量集中管理
     public static class Damping {
@@ -47,5 +79,52 @@ public class Constants {
         public static final double DEADZONE_RAMP_MIN = 0.30;
         public static final double HIGH_RATE_THRESHOLD = 0.35; // rad/s
         public static final double HIGH_RATE_MULTIPLIER = 1.25;
+    }
+
+    // ========= PID 可配置实例 =========
+    public static class PID {
+        // 平移 PID 参数（X/Y）
+        public static final double TRANS_KP = 1.0;
+        public static final double TRANS_KI = 0.00;
+        public static final double TRANS_KD = 0.00;
+        public static final double TRANS_MAX_OUT = 1.0;
+        public static final double TRANS_MIN_CMD = 0.03;
+        public static final double TRANS_DEADZONE_CM = 0.5;
+        public static final double TRANS_I_CLAMP = 0.2;
+
+        // 旋转 PID 参数
+        public static final double ROT_KP = 1.0;
+        public static final double ROT_KI = 0.00;
+        public static final double ROT_KD = 0.05;
+        public static final double ROT_MAX_OUT = 1.0;
+        public static final double ROT_MIN_CMD = 0.03;
+        public static final double ROT_DEADZONE_RAD = Math.toRadians(3.0);
+        public static final double ROT_I_CLAMP = 0.2;
+
+        // 统一通过常量初始化 PID 控制器
+        private static final AdaptivePIDController XTRANS_BASE =
+                new AdaptivePIDController(
+                        TRANS_KP, TRANS_KI, TRANS_KD,
+                        TRANS_MAX_OUT, TRANS_MIN_CMD,
+                        TRANS_DEADZONE_CM, TRANS_I_CLAMP);
+        private static final AdaptivePIDController YTRANS_BASE =
+                new AdaptivePIDController(
+                        TRANS_KP, TRANS_KI, TRANS_KD,
+                        TRANS_MAX_OUT, TRANS_MIN_CMD,
+                        TRANS_DEADZONE_CM, TRANS_I_CLAMP);
+        private static final AdaptivePIDController ROTATE_BASE =
+                new AdaptivePIDController(
+                        ROT_KP, ROT_KI, ROT_KD,
+                        ROT_MAX_OUT, ROT_MIN_CMD,
+                        ROT_DEADZONE_RAD, ROT_I_CLAMP);
+
+        public static AdaptivePIDController xTrans() { return XTRANS_BASE.copy(); }
+        public static AdaptivePIDController yTrans() { return YTRANS_BASE.copy(); }
+        public static AdaptivePIDController rotate() { return ROTATE_BASE.copy(); }
+
+        // 便捷工厂：创建一个 AdaptivePoseController
+        public static AdaptivePoseController newPoseController() {
+            return new AdaptivePoseController(xTrans(), yTrans(), rotate());
+        }
     }
 }
